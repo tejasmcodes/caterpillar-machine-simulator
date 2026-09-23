@@ -2,6 +2,8 @@ const express = require("express");
 
 const {
   config,
+  VALID_WEATHER,
+  VALID_VISIBILITY,
 } = require("./config");
 
 const {
@@ -13,6 +15,11 @@ const {
   setScenario,
   stopScenario,
   getSimulatorStatus,
+  getLatestTelemetry,
+  getSiteConditions,
+  setSiteConditions,
+  soundHorn,
+  precheck,
 } = require("./machineSimulator");
 
 
@@ -47,9 +54,9 @@ app.use(
  */
 
 const AVAILABLE_MACHINES = [
-  "MACHINE-001",
-  "MACHINE-002",
-  "MACHINE-003",
+  "EXC001",
+  "EXC002",
+  "EXC003",
 ];
 
 
@@ -362,15 +369,124 @@ app.get(
 
 /*
  * -----------------------------------------
+ * LIVE TELEMETRY + SITE CONDITIONS
+ * -----------------------------------------
+ */
+
+app.get(
+  "/api/telemetry",
+  (req, res) => {
+    res.json(getLatestTelemetry());
+  }
+);
+
+
+app.get(
+  "/api/site",
+  (req, res) => {
+    res.json(getSiteConditions());
+  }
+);
+
+
+app.post(
+  "/api/site",
+  (req, res) => {
+    const { weather, visibility, ambientTempC } = req.body;
+    const next = {};
+
+    if (weather !== undefined) {
+      if (!VALID_WEATHER.includes(weather)) {
+        return res.status(400).json({ error: `weather must be one of ${VALID_WEATHER.join(", ")}` });
+      }
+      next.weather = weather;
+    }
+
+    if (visibility !== undefined) {
+      if (!VALID_VISIBILITY.includes(visibility)) {
+        return res.status(400).json({ error: `visibility must be one of ${VALID_VISIBILITY.join(", ")}` });
+      }
+      next.visibility = visibility;
+    }
+
+    if (ambientTempC !== undefined) {
+      const t = Number(ambientTempC);
+      if (!Number.isFinite(t)) {
+        return res.status(400).json({ error: "ambientTempC must be a number" });
+      }
+      next.ambientTempC = t;
+    }
+
+    res.json(setSiteConditions(next));
+  }
+);
+
+
+/*
+ * -----------------------------------------
+ * HORN (machine side)
+ * -----------------------------------------
+ */
+
+app.post(
+  "/api/horn",
+  (req, res) => {
+    try {
+      soundHorn();
+      res.json({ success: true });
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+);
+
+
+/*
+ * -----------------------------------------
+ * PRE-CHECK (machine side, human in the loop)
+ * -----------------------------------------
+ */
+
+function precheckAction(fn) {
+  return (req, res) => {
+    try {
+      res.json(fn(req.body || {}));
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  };
+}
+
+app.get(
+  "/api/precheck",
+  (req, res) => {
+    res.json(precheck.getPanel());
+  }
+);
+
+app.post("/api/precheck/mode", precheckAction(({ mode }) => precheck.setMode(mode)));
+
+app.post(
+  "/api/precheck/verify",
+  precheckAction(({ sensor, status, note }) => precheck.verify(sensor, status, note || ""))
+);
+
+app.post("/api/precheck/mark-all-ok", precheckAction(() => precheck.markAllOk()));
+
+app.post("/api/precheck/submit", precheckAction(() => precheck.submit()));
+
+
+/*
+ * -----------------------------------------
  * SERVER
  * -----------------------------------------
  */
 
 const PORT =
-  config.controlPort || 3000;
+  config.controlPort;
 
 
-app.listen(
+const server = app.listen(
   PORT,
   () => {
 
@@ -394,5 +510,21 @@ app.listen(
       "========================================\n"
     );
 
+  }
+);
+
+
+server.on(
+  "error",
+  (error) => {
+    if (error.code === "EADDRINUSE") {
+      console.error(
+        `\n[CONTROL] Port ${PORT} is already in use — another simulator is probably running.\n` +
+        `[CONTROL] Stop it, or start this one on another port: set CONTROL_PORT=3001\n`
+      );
+    } else {
+      console.error("[CONTROL] Server error:", error);
+    }
+    process.exit(1);
   }
 );

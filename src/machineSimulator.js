@@ -9,17 +9,23 @@ const {
   createMachine,
   updateMachineState,
   updateTelemetry,
+  updateExtendedTelemetry,
 } = require("./machine");
 
 const {
   SCENARIOS,
   applyScenario,
+  applyScenarioAfterTelemetry,
   updateSeatbelt,
 } = require("./scenarios");
 
 const {
   createTelemetryPayload,
 } = require("./telemetry");
+
+const {
+  createCommandHandler,
+} = require("./commands");
 
 
 /*
@@ -62,6 +68,109 @@ let telemetryTopic = null;
 let controlTopic = null;
 
 let cycleCount = 0;
+
+let heartbeatInterval = null;
+
+let siteInterval = null;
+
+let lastPublishedState = null;
+
+const startedAt = Date.now();
+
+let siteConditions = {
+  weather: config.siteWeather,
+  visibility: config.siteVisibility,
+  ambientTempC: config.siteAmbientTempC,
+};
+
+const commandHandler = createCommandHandler({
+  getMachine: () => machine,
+  isOffline: () =>
+    !machine || machine.scenario === SCENARIOS.MACHINE_OFFLINE,
+  publish: publishJson,
+  publishEvent,
+});
+
+
+/*
+ * -----------------------------------------
+ * MQTT HELPERS
+ * -----------------------------------------
+ */
+
+function publishJson(topic, payload, qos = 1) {
+  if (!mqttClient) {
+    return;
+  }
+
+  mqttClient.publish(
+    topic,
+    JSON.stringify(payload),
+    { qos, retain: false },
+    (error) => {
+      if (error) {
+        console.error(`[MQTT] Publish to ${topic} failed: ${error.message}`);
+      }
+    }
+  );
+}
+
+function publishEvent(type, severity, data = {}) {
+  if (!machine) {
+    return;
+  }
+
+  publishJson(`machines/${machine.machineId}/events`, {
+    machineId: machine.machineId,
+    type,
+    severity,
+    data,
+    timestamp: new Date().toISOString(),
+  });
+}
+
+function publishHeartbeat() {
+  if (!machine || machine.scenario === SCENARIOS.MACHINE_OFFLINE) {
+    return;
+  }
+
+  publishJson(
+    `machines/${machine.machineId}/heartbeat`,
+    {
+      machineId: machine.machineId,
+      timestamp: new Date().toISOString(),
+      uptimeSec: Math.round((Date.now() - startedAt) / 1000),
+    },
+    0
+  );
+}
+
+function publishSiteConditions() {
+  publishJson(
+    "site/conditions",
+    {
+      ...siteConditions,
+      source: machine ? machine.machineId : null,
+      timestamp: new Date().toISOString(),
+    },
+    0
+  );
+}
+
+function publishStateIfChanged() {
+  if (machine.state === lastPublishedState) {
+    return;
+  }
+
+  publishJson(`machines/${machine.machineId}/state`, {
+    machineId: machine.machineId,
+    state: machine.state,
+    previousState: lastPublishedState,
+    timestamp: new Date().toISOString(),
+  });
+
+  lastPublishedState = machine.state;
+}
 
 
 /*
@@ -201,6 +310,39 @@ function startSimulator(machineId) {
         `[MQTT] Machine ${machineId} is ready`
       );
 
+      mqttClient.subscribe(
+        `machines/${machineId}/commands/#`,
+        { qos: 1 },
+        (error) => {
+          if (error) {
+            console.error(`[MQTT] Command subscribe failed: ${error.message}`);
+          } else {
+            console.log(`[MQTT] Listening for commands on machines/${machineId}/commands/#`);
+          }
+        }
+      );
+
+      publishSiteConditions();
+
+    }
+  );
+
+
+  mqttClient.on(
+    "message",
+    (topic, message) => {
+
+      let payload = {};
+
+      try {
+        payload = JSON.parse(message.toString() || "{}");
+      } catch (error) {
+        console.error(`[MQTT] Invalid command JSON on ${topic}`);
+        return;
+      }
+
+      commandHandler.handle(topic, payload);
+
     }
   );
 
@@ -259,6 +401,19 @@ function startSimulator(machineId) {
    */
 
   runSimulationTick();
+
+
+  heartbeatInterval =
+    setInterval(
+      publishHeartbeat,
+      config.heartbeatIntervalMs
+    );
+
+  siteInterval =
+    setInterval(
+      publishSiteConditions,
+      config.siteConditionsIntervalMs
+    );
 
 
   console.log(
@@ -617,6 +772,29 @@ function runSimulationTick() {
 
   /*
    * ---------------------------------------
+   * EXTENDED SAFETY TELEMETRY + SCENARIO
+   * ---------------------------------------
+   */
+
+  updateExtendedTelemetry(
+    machine
+  );
+
+  applyScenarioAfterTelemetry(
+    machine
+  );
+
+  publishStateIfChanged();
+
+  if (machine.impactG > 2.5) {
+    publishEvent("IMPACT", "CRITICAL", {
+      impactG: Number(machine.impactG.toFixed(2)),
+    });
+  }
+
+
+  /*
+   * ---------------------------------------
    * CREATE TELEMETRY PAYLOAD
    * ---------------------------------------
    */
@@ -668,6 +846,10 @@ function shutdown(
     simulationInterval = null;
 
   }
+
+  clearInterval(heartbeatInterval);
+
+  clearInterval(siteInterval);
 
 
   /*
@@ -735,6 +917,34 @@ process.on(
  * -----------------------------------------
  */
 
+/*
+ * -----------------------------------------
+ * CONTROL UI HELPERS
+ * -----------------------------------------
+ */
+
+function getLatestTelemetry() {
+  return machine ? createTelemetryPayload(machine) : null;
+}
+
+function getSiteConditions() {
+  return siteConditions;
+}
+
+function setSiteConditions(next) {
+  siteConditions = { ...siteConditions, ...next };
+  publishSiteConditions();
+  return siteConditions;
+}
+
+function soundHorn() {
+  if (!machine) {
+    throw new Error("Simulator has not been started");
+  }
+  commandHandler.soundHorn("MACHINE_SIDE");
+}
+
+
 module.exports = {
 
   startSimulator,
@@ -744,5 +954,21 @@ module.exports = {
   stopScenario,
 
   getSimulatorStatus,
+
+  getLatestTelemetry,
+
+  getSiteConditions,
+
+  setSiteConditions,
+
+  soundHorn,
+
+  precheck: {
+    getPanel: () => commandHandler.getPanel(),
+    setMode: (mode) => commandHandler.setMode(mode),
+    verify: (sensor, status, note) => commandHandler.verify(sensor, status, note),
+    markAllOk: () => commandHandler.markAllOk(),
+    submit: () => commandHandler.submit(),
+  },
 
 };

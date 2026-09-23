@@ -1,579 +1,323 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
   <meta charset="UTF-8">
-
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  >
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Caterpillar Machine Simulator</title>
-
   <style>
-
+    * { box-sizing: border-box; }
     body {
       font-family: Arial, sans-serif;
-      max-width: 700px;
-      margin: 50px auto;
-      padding: 20px;
+      max-width: 980px;
+      margin: 24px auto;
+      padding: 0 16px 40px;
+      background: #f2f2f2;
+      color: #1a1a1a;
     }
-
-    h1 {
-      margin-bottom: 30px;
+    h1 { margin: 0 0 18px; }
+    h2 { margin: 0 0 12px; font-size: 20px; }
+    .card {
+      background: #fff;
+      border: 2px solid #d4d4d4;
+      border-radius: 6px;
+      padding: 18px;
+      margin-bottom: 18px;
     }
-
-    .machine {
-      background: #f5f5f5;
-      padding: 25px;
-      border-radius: 10px;
-      margin-bottom: 25px;
-    }
-
-    label {
-      display: block;
-      margin-top: 15px;
-      margin-bottom: 5px;
-      font-weight: bold;
-    }
-
-    select,
-    input,
-    button {
+    label { display: block; margin: 12px 0 5px; font-weight: bold; }
+    select, input, button {
       width: 100%;
       padding: 10px;
       font-size: 16px;
-      box-sizing: border-box;
+      border-radius: 4px;
+      border: 2px solid #bbb;
     }
-
-    button {
-      margin-top: 20px;
-      cursor: pointer;
-    }
-
-    #status {
-      margin-top: 25px;
-      padding: 15px;
-      background: #eee;
-      border-radius: 8px;
-    }
-
-    .hidden {
-      display: none;
-    }
-
+    button { margin-top: 12px; cursor: pointer; background: #FFCD11; border-color: #c9a200; font-weight: bold; }
+    button.secondary { background: #fff; border-color: #bbb; font-weight: normal; }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+    .hidden { display: none; }
+    .kv { font-size: 14px; color: #555; }
+    .kv strong { display: block; font-size: 20px; color: #111; }
+    .mode { display: flex; gap: 8px; }
+    .mode button { margin-top: 0; background: #fff; border-color: #bbb; }
+    .mode button.active { background: #1a1a1a; color: #FFCD11; border-color: #1a1a1a; }
+    .banner { background: #fff7d1; border: 2px solid #F2A900; padding: 12px; border-radius: 4px; font-weight: bold; margin: 12px 0; }
+    .muted { color: #666; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #e3e3e3; vertical-align: middle; font-size: 14px; }
+    th { font-size: 13px; color: #666; }
+    .chip { display: inline-block; padding: 2px 8px; border-radius: 3px; font-weight: bold; font-size: 12px; border: 2px solid; }
+    .OK { color: #2E9E44; border-color: #2E9E44; }
+    .WARN { color: #b37d00; border-color: #F2A900; }
+    .FAIL { color: #D62828; border-color: #D62828; }
+    .crit { font-size: 11px; color: #D62828; font-weight: bold; margin-left: 4px; }
+    .verify { display: flex; gap: 4px; }
+    .verify button { margin: 0; padding: 6px 8px; font-size: 13px; width: auto; background: #fff; border-color: #bbb; font-weight: normal; }
+    .verify button.sel.OK { background: #2E9E44; color: #fff; border-color: #2E9E44; }
+    .verify button.sel.WARN { background: #F2A900; color: #111; border-color: #F2A900; }
+    .verify button.sel.FAIL { background: #D62828; color: #fff; border-color: #D62828; }
+    td input { padding: 6px; font-size: 13px; }
+    .override { color: #D62828; font-size: 12px; font-weight: bold; }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   </style>
-
 </head>
-
-
 <body>
 
-  <h1>
-    Caterpillar Machine Simulator
-  </h1>
+  <h1>Caterpillar Machine Simulator</h1>
 
-
-  <!-- ========================================= -->
   <!-- MACHINE SELECTION -->
-  <!-- ========================================= -->
-
-  <div
-    id="machineSelection"
-    class="machine"
-  >
-
-    <h2>
-      Select Machine
-    </h2>
-
-
-    <label for="machineSelect">
-      Machine ID
-    </label>
-
-
+  <div id="machineSelection" class="card">
+    <h2>Select Machine</h2>
+    <label for="machineSelect">Machine ID</label>
     <select id="machineSelect">
-
-      <option value="MACHINE-001">
-        MACHINE-001
-      </option>
-
-      <option value="MACHINE-002">
-        MACHINE-002
-      </option>
-
-      <option value="MACHINE-003">
-        MACHINE-003
-      </option>
-
+      <option value="EXC001">EXC001</option>
+      <option value="EXC002">EXC002</option>
+      <option value="EXC003">EXC003</option>
     </select>
-
-
-    <button
-      onclick="startMachine()"
-    >
-      Start Machine
-    </button>
-
+    <button onclick="startMachine()">Start Machine</button>
   </div>
 
+  <div id="running" class="hidden">
 
-  <!-- ========================================= -->
-  <!-- SCENARIO CONTROL -->
-  <!-- ========================================= -->
-
-  <div
-    id="scenarioControl"
-    class="machine hidden"
-  >
-
-    <h2>
-      Machine:
-      <span id="machineId">
-        -
-      </span>
-    </h2>
-
-
-    <label for="scenario">
-      Scenario
-    </label>
-
-
-    <select id="scenario">
-
-      <option value="NORMAL">
-        Normal
-      </option>
-
-      <option value="SEATBELT_VIOLATION">
-        Seatbelt Violation
-      </option>
-
-      <option value="EXCESSIVE_IDLE">
-        Excessive Idle
-      </option>
-
-      <option value="OVERHEATING">
-        Overheating
-      </option>
-
-      <option value="HIGH_VIBRATION">
-        High Vibration
-      </option>
-
-      <option value="PROXIMITY_HAZARD">
-        Proximity Hazard
-      </option>
-
-      <option value="ABNORMAL_FUEL_CONSUMPTION">
-        Abnormal Fuel Consumption
-      </option>
-
-      <option value="MACHINE_OFFLINE">
-        Machine Offline
-      </option>
-
-    </select>
-
-
-    <label for="duration">
-      Duration (seconds)
-    </label>
-
-
-    <input
-      id="duration"
-      type="number"
-      min="1"
-      value="15"
-    >
-
-
-    <button
-      onclick="startScenario()"
-    >
-      Start Scenario
-    </button>
-
-
-    <button
-      onclick="stopScenario()"
-    >
-      Return to Normal
-    </button>
-
-
-    <div id="status">
-
-      Current Scenario:
-
-      <strong id="currentScenario">
-        NORMAL
-      </strong>
-
+    <!-- LIVE -->
+    <div class="card">
+      <h2>Machine <span id="machineId">-</span> — live</h2>
+      <div class="row" id="live"></div>
     </div>
 
+    <!-- PRE-CHECK -->
+    <div class="card">
+      <h2>Pre-check (machine side)</h2>
+      <div class="mode">
+        <button id="modeAUTO" onclick="setMode('AUTO')">AUTO — machine checks itself</button>
+        <button id="modeMANUAL" onclick="setMode('MANUAL')">MANUAL — person verifies</button>
+      </div>
+      <div id="precheckIdle" class="muted" style="margin-top:12px"></div>
+      <div id="precheckPending" class="hidden">
+        <div class="banner" id="pendingBanner"></div>
+        <table>
+          <thead>
+            <tr><th>Sensor</th><th>Auto reading</th><th>Verify</th><th>Note</th></tr>
+          </thead>
+          <tbody id="sensorRows"></tbody>
+        </table>
+        <div class="actions">
+          <button class="secondary" onclick="markAllOk()">Mark all OK readings as verified</button>
+          <button id="submitBtn" onclick="submitPrecheck()">Submit pre-check</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCENARIO -->
+    <div class="card">
+      <h2>Scenario</h2>
+      <label for="scenario">Scenario</label>
+      <select id="scenario"></select>
+      <label for="duration">Duration (seconds)</label>
+      <input id="duration" type="number" min="1" value="30">
+      <div class="actions">
+        <button onclick="startScenario()">Start Scenario</button>
+        <button class="secondary" onclick="stopScenario()">Return to Normal</button>
+      </div>
+      <p>Current scenario: <strong id="currentScenario">NORMAL</strong></p>
+    </div>
+
+    <!-- SITE + HORN -->
+    <div class="card">
+      <h2>Site conditions and horn</h2>
+      <div class="row">
+        <div>
+          <label for="weather">Weather</label>
+          <select id="weather"><option>CLEAR</option><option>RAIN</option><option>FOG</option></select>
+        </div>
+        <div>
+          <label for="visibility">Visibility</label>
+          <select id="visibility"><option>GOOD</option><option>LOW</option></select>
+        </div>
+        <div>
+          <label for="ambient">Ambient °C</label>
+          <input id="ambient" type="number" value="31">
+        </div>
+      </div>
+      <div class="actions">
+        <button onclick="applySite()">Apply site conditions</button>
+        <button class="secondary" onclick="soundHorn()">Sound horn</button>
+      </div>
+    </div>
   </div>
 
-
-  <!-- ========================================= -->
-  <!-- JAVASCRIPT -->
-  <!-- ========================================= -->
-
   <script>
+    const STATUSES = ['OK', 'WARN', 'FAIL'];
+    const noteDrafts = {};
+    let lastPanelKey = '';
 
-
-    /*
-     * -----------------------------------------
-     * START MACHINE
-     * -----------------------------------------
-     */
-
-    async function startMachine() {
-
-      const machineId =
-        document.getElementById(
-          "machineSelect"
-        ).value;
-
-
-      try {
-
-        const response =
-          await fetch(
-            "/api/machine/start",
-            {
-              method: "POST",
-
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-
-              body: JSON.stringify({
-                machineId,
-              }),
-            }
-          );
-
-
-        const data =
-          await response.json();
-
-
-        if (!response.ok) {
-
-          alert(
-            data.error ||
-            "Failed to start machine"
-          );
-
-          return;
-        }
-
-
-        /*
-         * Hide machine selection
-         */
-
-        document.getElementById(
-          "machineSelection"
-        ).classList.add("hidden");
-
-
-        /*
-         * Show scenario controls
-         */
-
-        document.getElementById(
-          "scenarioControl"
-        ).classList.remove("hidden");
-
-
-        /*
-         * Display selected machine
-         */
-
-        document.getElementById(
-          "machineId"
-        ).textContent =
-          data.machineId;
-
-
-        updateStatus(
-          data.scenario
-        );
-
-
-      } catch (error) {
-
-        alert(
-          "Could not connect to control server"
-        );
-
-        console.error(error);
-
-      }
-
+    async function api(path, method = 'GET', body) {
+      const res = await fetch(path, {
+        method,
+        headers: body ? { 'Content-Type': 'application/json' } : undefined,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+      return data;
     }
 
+    async function run(fn) {
+      try { await fn(); } catch (e) { alert(e.message); }
+    }
 
-    /*
-     * -----------------------------------------
-     * START SCENARIO
-     * -----------------------------------------
-     */
+    function startMachine() {
+      run(async () => {
+        await api('/api/machine/start', 'POST', { machineId: document.getElementById('machineSelect').value });
+        await refresh();
+      });
+    }
 
-    async function startScenario() {
+    function startScenario() {
+      run(async () => {
+        const data = await api('/api/scenario/start', 'POST', {
+          scenario: document.getElementById('scenario').value,
+          duration: Number(document.getElementById('duration').value),
+        });
+        document.getElementById('currentScenario').textContent = data.scenario;
+      });
+    }
 
-      const scenario =
-        document.getElementById(
-          "scenario"
-        ).value;
+    function stopScenario() {
+      run(async () => {
+        const data = await api('/api/scenario/stop', 'POST');
+        document.getElementById('currentScenario').textContent = data.scenario;
+      });
+    }
 
+    function applySite() {
+      run(() => api('/api/site', 'POST', {
+        weather: document.getElementById('weather').value,
+        visibility: document.getElementById('visibility').value,
+        ambientTempC: Number(document.getElementById('ambient').value),
+      }));
+    }
 
-      const duration =
-        Number(
-          document.getElementById(
-            "duration"
-          ).value
-        );
+    function soundHorn() { run(() => api('/api/horn', 'POST')); }
 
+    function setMode(mode) { run(async () => { renderPanel(await api('/api/precheck/mode', 'POST', { mode })); }); }
 
-      if (duration <= 0) {
+    function verify(sensor, status) {
+      run(async () => {
+        renderPanel(await api('/api/precheck/verify', 'POST', { sensor, status, note: noteDrafts[sensor] || '' }), true);
+      });
+    }
 
-        alert(
-          "Duration must be greater than 0"
-        );
+    function markAllOk() { run(async () => { renderPanel(await api('/api/precheck/mark-all-ok', 'POST'), true); }); }
 
+    function submitPrecheck() {
+      run(async () => {
+        renderPanel(await api('/api/precheck/submit', 'POST'), true);
+        Object.keys(noteDrafts).forEach((k) => delete noteDrafts[k]);
+      });
+    }
+
+    function renderLive(t) {
+      const live = document.getElementById('live');
+      if (!t) { live.innerHTML = '<div class="muted">No telemetry yet</div>'; return; }
+      const items = [
+        ['State', t.state],
+        ['Operator', t.operatorId || '—'],
+        ['RPM', t.engineRpm],
+        ['Engine °C', t.engineTemperature],
+        ['Hydraulic °C', t.hydraulicTemperature],
+        ['Seatbelt', t.seatbeltStatus ? 'FASTENED' : 'OPEN'],
+        ['Nearest object', `${t.nearestObjectDistanceM} m`],
+        ['Tilt', `${t.tiltAngleDeg}°`],
+        ['Load', `${t.loadWeightKg} kg`],
+        ['Oil pressure', `${t.oilPressureKpa} kPa`],
+      ];
+      live.innerHTML = items.map(([k, v]) => `<div class="kv">${k}<strong>${v}</strong></div>`).join('');
+    }
+
+    function renderPanel(panel, force = false) {
+      ['AUTO', 'MANUAL'].forEach((m) =>
+        document.getElementById(`mode${m}`).classList.toggle('active', panel.mode === m)
+      );
+
+      const idle = document.getElementById('precheckIdle');
+      const pendingBox = document.getElementById('precheckPending');
+
+      if (!panel.pending) {
+        pendingBox.classList.add('hidden');
+        idle.textContent = panel.mode === 'AUTO'
+          ? 'AUTO: when the operator taps "Run Machine Pre-Check", the machine grades all 15 sensors itself.'
+          : 'MANUAL: waiting for the operator to request a pre-check. The request will appear here for verification.';
+        lastPanelKey = '';
         return;
-
       }
 
+      idle.textContent = '';
+      pendingBox.classList.remove('hidden');
+      const p = panel.pending;
+      document.getElementById('pendingBanner').textContent =
+        `Pre-check requested by ${p.operatorId || 'operator'} at ${new Date(p.requestedAt).toLocaleTimeString()} — ${p.verifiedCount} of ${p.total} verified`;
+      document.getElementById('submitBtn').disabled = p.verifiedCount < p.total;
 
+      const key = JSON.stringify(p.sensors.map((s) => [s.sensor, s.status, s.autoStatus, s.value]));
+      if (!force && key === lastPanelKey) return;
+      lastPanelKey = key;
+
+      const active = document.activeElement;
+      const editing = active && active.dataset ? active.dataset.sensor : null;
+
+      document.getElementById('sensorRows').innerHTML = p.sensors.map((s) => `
+        <tr>
+          <td>${s.label}${s.critical ? '<span class="crit">CRITICAL</span>' : ''}</td>
+          <td>${s.value}${s.unit ? ' ' + s.unit : ''} <span class="chip ${s.autoStatus}">${s.autoStatus}</span></td>
+          <td>
+            <div class="verify">
+              ${STATUSES.map((st) => `<button class="${s.status === st ? 'sel ' + st : ''}" onclick="verify('${s.sensor}','${st}')">${st}</button>`).join('')}
+            </div>
+            ${s.override ? '<div class="override">Overrides auto reading</div>' : ''}
+          </td>
+          <td><input data-sensor="${s.sensor}" placeholder="optional note" value="${(noteDrafts[s.sensor] ?? s.note ?? '').replace(/"/g, '&quot;')}" oninput="noteDrafts['${s.sensor}']=this.value"></td>
+        </tr>`).join('');
+
+      if (editing) {
+        const input = document.querySelector(`input[data-sensor="${editing}"]`);
+        if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+      }
+    }
+
+    async function loadScenarios() {
+      const scenarios = await api('/api/scenarios');
+      document.getElementById('scenario').innerHTML = scenarios
+        .map((s) => `<option value="${s}">${s.replaceAll('_', ' ')}</option>`)
+        .join('');
+    }
+
+    async function loadSite() {
+      const site = await api('/api/site');
+      document.getElementById('weather').value = site.weather;
+      document.getElementById('visibility').value = site.visibility;
+      document.getElementById('ambient').value = site.ambientTempC;
+    }
+
+    async function refresh() {
       try {
-
-        const response =
-          await fetch(
-            "/api/scenario/start",
-            {
-              method: "POST",
-
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-
-              body: JSON.stringify({
-                scenario,
-                duration,
-              }),
-            }
-          );
-
-
-        const data =
-          await response.json();
-
-
-        if (!response.ok) {
-
-          alert(
-            data.error ||
-            "Failed to start scenario"
-          );
-
-          return;
-
-        }
-
-
-        updateStatus(
-          data.scenario
-        );
-
-
-      } catch (error) {
-
-        alert(
-          "Could not connect to control server"
-        );
-
-        console.error(error);
-
+        const status = await api('/api/status');
+        if (!status.started) return;
+        document.getElementById('machineSelection').classList.add('hidden');
+        document.getElementById('running').classList.remove('hidden');
+        document.getElementById('machineId').textContent = status.machineId;
+        document.getElementById('currentScenario').textContent = status.scenario;
+        renderLive(await api('/api/telemetry'));
+        renderPanel(await api('/api/precheck'));
+      } catch (e) {
+        console.error('Refresh failed:', e);
       }
-
     }
 
-
-    /*
-     * -----------------------------------------
-     * RETURN TO NORMAL
-     * -----------------------------------------
-     */
-
-    async function stopScenario() {
-
-      try {
-
-        const response =
-          await fetch(
-            "/api/scenario/stop",
-            {
-              method: "POST",
-            }
-          );
-
-
-        const data =
-          await response.json();
-
-
-        if (!response.ok) {
-
-          alert(
-            data.error ||
-            "Failed to return to normal"
-          );
-
-          return;
-
-        }
-
-
-        updateStatus(
-          data.scenario
-        );
-
-
-      } catch (error) {
-
-        alert(
-          "Could not connect to control server"
-        );
-
-        console.error(error);
-
-      }
-
-    }
-
-
-    /*
-     * -----------------------------------------
-     * UPDATE UI STATUS
-     * -----------------------------------------
-     */
-
-    function updateStatus(scenario) {
-
-      document.getElementById(
-        "currentScenario"
-      ).textContent =
-        scenario;
-
-    }
-
-
-    /*
-     * -----------------------------------------
-     * REFRESH STATUS FROM SERVER
-     * -----------------------------------------
-     */
-
-    async function refreshStatus() {
-
-      try {
-
-        const response =
-          await fetch(
-            "/api/status"
-          );
-
-
-        const data =
-          await response.json();
-
-
-        /*
-         * Simulator has not been started yet
-         */
-
-        if (!data.started) {
-
-          return;
-
-        }
-
-
-        /*
-         * Simulator is running
-         */
-
-        document.getElementById(
-          "machineSelection"
-        ).classList.add("hidden");
-
-
-        document.getElementById(
-          "scenarioControl"
-        ).classList.remove("hidden");
-
-
-        document.getElementById(
-          "machineId"
-        ).textContent =
-          data.machineId;
-
-
-        updateStatus(
-          data.scenario
-        );
-
-
-      } catch (error) {
-
-        console.error(
-          "Status update failed:",
-          error
-        );
-
-      }
-
-    }
-
-
-    /*
-     * -----------------------------------------
-     * INITIAL STATUS CHECK
-     * -----------------------------------------
-     */
-
-    refreshStatus();
-
-
-    /*
-     * -----------------------------------------
-     * REFRESH EVERY SECOND
-     * -----------------------------------------
-     *
-     * This is important because a scenario such
-     * as OVERHEATING automatically returns to
-     * NORMAL after its duration expires.
-     */
-
-    setInterval(
-      refreshStatus,
-      1000
-    );
-
-
+    loadScenarios();
+    loadSite();
+    refresh();
+    setInterval(refresh, 1000);
   </script>
-
 </body>
-
 </html>

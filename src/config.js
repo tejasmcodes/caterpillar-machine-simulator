@@ -1,15 +1,11 @@
 require("dotenv").config();
 
-const VALID_SCENARIOS = [
-  "NORMAL",
-  "SEATBELT_VIOLATION",
-  "EXCESSIVE_IDLE",
-  "OVERHEATING",
-  "HIGH_VIBRATION",
-  "PROXIMITY_HAZARD",
-  "ABNORMAL_FUEL_CONSUMPTION",
-  "MACHINE_OFFLINE",
-];
+const { SCENARIOS } = require("./scenarios");
+
+const VALID_SCENARIOS = Object.values(SCENARIOS);
+
+const VALID_WEATHER = ["CLEAR", "RAIN", "FOG"];
+const VALID_VISIBILITY = ["GOOD", "LOW"];
 
 function getNumberEnv(name, defaultValue) {
   const value = process.env[name];
@@ -41,6 +37,30 @@ const config = {
     4000
   ),
 
+  heartbeatIntervalMs: getNumberEnv(
+    "HEARTBEAT_INTERVAL_MS",
+    5000
+  ),
+
+  siteConditionsIntervalMs: getNumberEnv(
+    "SITE_CONDITIONS_INTERVAL_MS",
+    60000
+  ),
+
+  controlPort: getNumberEnv(
+    "CONTROL_PORT",
+    3000
+  ),
+
+  siteWeather: process.env.SITE_WEATHER || "CLEAR",
+
+  siteVisibility: process.env.SITE_VISIBILITY || "GOOD",
+
+  siteAmbientTempC: getNumberEnv(
+    "SITE_AMBIENT_TEMP_C",
+    31
+  ),
+
   latitude: getNumberEnv(
     "MACHINE_LATITUDE",
     12.97
@@ -69,10 +89,20 @@ function validateConfig() {
       "SIMULATOR_INTERVAL_MS must be at least 500ms"
     );
   }
+
+  if (!VALID_WEATHER.includes(config.siteWeather)) {
+    throw new Error(`SITE_WEATHER must be one of ${VALID_WEATHER.join(", ")}`);
+  }
+
+  if (!VALID_VISIBILITY.includes(config.siteVisibility)) {
+    throw new Error(`SITE_VISIBILITY must be one of ${VALID_VISIBILITY.join(", ")}`);
+  }
 }
 
 module.exports = {
   config,
   VALID_SCENARIOS,
+  VALID_WEATHER,
+  VALID_VISIBILITY,
   validateConfig,
 };

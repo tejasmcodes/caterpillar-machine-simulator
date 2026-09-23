@@ -164,7 +164,7 @@ The terminal will wait for messages.
 Once the simulator starts publishing telemetry, messages should appear similar to:
 
 ```text
-machines/MACHINE-001/telemetry {"machineId":"MACHINE-001", ...}
+machines/EXC001/telemetry {"machineId":"EXC001", ...}
 ```
 
 If messages appear, the MQTT broker is working correctly.
@@ -240,9 +240,9 @@ The simulator UI will first display the machine selection screen.
 Select one of the available machines:
 
 ```text
-MACHINE-001
-MACHINE-002
-MACHINE-003
+EXC001
+EXC002
+EXC003
 ```
 
 Then click:
@@ -267,13 +267,13 @@ The terminal should show messages similar to:
 
 ```text
 [MQTT] Connected to mqtt://localhost:1883
-[MQTT] Publishing telemetry to machines/MACHINE-001/telemetry
+[MQTT] Publishing telemetry to machines/EXC001/telemetry
 ```
 
 The MQTT subscriber should also receive telemetry:
 
 ```text
-machines/MACHINE-001/telemetry {...}
+machines/EXC001/telemetry {...}
 ```
 
 ---
@@ -441,7 +441,7 @@ Recommended setup:
               +--------------+--------------+
               |              |              |
           Laptop 1       Laptop 2       Laptop 3
-        MACHINE-001    MACHINE-002    MACHINE-003
+        EXC001    EXC002    EXC003
               |              |              |
               +--------------+--------------+
                              |
@@ -524,9 +524,9 @@ Each laptop should select a different machine through the UI.
 Example:
 
 ```text
-Laptop 1 → MACHINE-001
-Laptop 2 → MACHINE-002
-Laptop 3 → MACHINE-003
+Laptop 1 → EXC001
+Laptop 2 → EXC002
+Laptop 3 → EXC003
 ```
 
 All three simulators publish to the same MQTT broker.
@@ -534,9 +534,9 @@ All three simulators publish to the same MQTT broker.
 The telemetry topics are machine-specific:
 
 ```text
-machines/MACHINE-001/telemetry
-machines/MACHINE-002/telemetry
-machines/MACHINE-003/telemetry
+machines/EXC001/telemetry
+machines/EXC002/telemetry
+machines/EXC003/telemetry
 ```
 
 The operator backend can subscribe to all machines using:

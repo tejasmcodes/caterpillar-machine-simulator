@@ -100,6 +100,62 @@ function createTelemetryPayload(machine) {
     seatbeltStatus:
       machine.seatbeltStatus,
 
+    operatorId:
+      machine.operatorId,
+
+    operatorPresent:
+      machine.operatorPresent,
+
+    hydraulicLockout:
+      machine.hydraulicLockout,
+
+    parkingBrake:
+      machine.parkingBrake,
+
+    nearestObjectDistanceM: Number(
+      machine.nearestObjectDistanceM.toFixed(1)
+    ),
+
+    impactG: Number(
+      machine.impactG.toFixed(2)
+    ),
+
+    /*
+     * -------------------------
+     * MOTION / LOAD
+     * -------------------------
+     */
+
+    speedKph: Number(
+      machine.speedKph.toFixed(1)
+    ),
+
+    tiltAngleDeg: Number(
+      machine.tiltAngleDeg.toFixed(1)
+    ),
+
+    swingAngleDeg: Math.round(
+      machine.swingAngleDeg
+    ),
+
+    boomHeightM: Number(
+      machine.boomHeightM.toFixed(1)
+    ),
+
+    loadWeightKg: Math.round(
+      machine.loadWeightKg
+    ),
+
+    ratedCapacityKg:
+      machine.ratedCapacityKg,
+
+    oilPressureKpa: Math.round(
+      machine.oilPressureKpa
+    ),
+
+    terrain:
+      machine.terrain,
+
     /*
      * -------------------------
      * LOCATION

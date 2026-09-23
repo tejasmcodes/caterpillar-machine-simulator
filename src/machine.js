@@ -155,6 +155,45 @@ function createMachine({
 
     seatbeltStatus: true,
 
+    operatorId: null,
+
+    operatorPresent: true,
+
+    hydraulicLockout: true,
+
+    parkingBrake: true,
+
+    nearestObjectDistanceM: 22,
+
+    impactG: 0.1,
+
+    hornUntil: 0,
+
+
+    /*
+     * -------------------------------------
+     * MOTION / LOAD
+     * -------------------------------------
+     */
+
+    speedKph: 0,
+
+    tiltAngleDeg: 1.5,
+
+    swingAngleDeg: 0,
+
+    boomHeightM: 1,
+
+    loadWeightKg: 0,
+
+    ratedCapacityKg: 5000,
+
+    oilPressureKpa: 180,
+
+    terrain: "FLAT",
+
+    sensorFaults: {},
+
 
     /*
      * -------------------------------------
@@ -500,9 +539,96 @@ function updateTelemetry(
 }
 
 
+/*
+ * -----------------------------------------
+ * EXTENDED TELEMETRY
+ * -----------------------------------------
+ *
+ * Safety-related fields used by the operator
+ * dashboard (pre-check, safety engine). Only
+ * the live simulator calls this; the ML
+ * dataset generator does not.
+ */
+
+const BOOM_HEIGHT_TARGETS = {
+  IDLE: 1.0,
+  STARTING: 1.0,
+  OPERATING: 2.0,
+  LOADING: 1.2,
+  TRANSPORTING: 3.5,
+  UNLOADING: 4.0,
+};
+
+const SWING_TARGETS = {
+  IDLE: 0,
+  STARTING: 0,
+  OPERATING: 0,
+  LOADING: 0,
+  TRANSPORTING: 90,
+  UNLOADING: 120,
+};
+
+function jitter(amount) {
+  return (Math.random() - 0.5) * 2 * amount;
+}
+
+function updateExtendedTelemetry(machine) {
+  const state = machine.state;
+  const idle = state === STATES.IDLE;
+
+  machine.operatorPresent = true;
+  machine.hydraulicLockout = idle;
+  machine.parkingBrake = idle || state === STATES.STARTING;
+  machine.terrain = "FLAT";
+
+  machine.speedKph = approach(
+    machine.speedKph,
+    state === STATES.TRANSPORTING ? 4.5 : 0,
+    1.5
+  );
+
+  machine.tiltAngleDeg = approach(
+    machine.tiltAngleDeg,
+    1.5 + jitter(0.8),
+    0.5
+  );
+
+  machine.swingAngleDeg = approach(
+    machine.swingAngleDeg,
+    SWING_TARGETS[state],
+    30
+  );
+
+  machine.boomHeightM = approach(
+    machine.boomHeightM,
+    BOOM_HEIGHT_TARGETS[state],
+    0.6
+  );
+
+  if (state === STATES.LOADING) {
+    machine.loadWeightKg = approach(machine.loadWeightKg, 3800, 1200);
+  } else if (state === STATES.UNLOADING || idle) {
+    machine.loadWeightKg = approach(machine.loadWeightKg, 0, 1500);
+  }
+
+  machine.oilPressureKpa =
+    machine.engineRpm > 0
+      ? 150 + machine.engineRpm * 0.11 + jitter(6)
+      : 0;
+
+  machine.impactG = 0.05 + Math.random() * 0.25;
+
+  machine.nearestObjectDistanceM = Math.min(
+    35,
+    Math.max(12, machine.nearestObjectDistanceM + jitter(1.5))
+  );
+}
+
+
 module.exports = {
   STATES,
   createMachine,
   updateMachineState,
   updateTelemetry,
+  updateExtendedTelemetry,
 };
