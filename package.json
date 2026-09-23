@@ -4,10 +4,12 @@
   "description": "Synthetic Caterpillar machine telemetry simulator for CATman",
   "main": "src/machineSimulator.js",
   "scripts": {
-    "start": "node src/machineSimulator.js"
+    "start": "node src/controlServer.js",
+    "generate-dataset": "node src/datasetGenerator.js"
   },
   "dependencies": {
     "dotenv": "^17.2.2",
+    "express": "^5.2.1",
     "mqtt": "^5.14.1"
   }
 }
