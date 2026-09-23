@@ -54,7 +54,8 @@ const mqttClient = mqtt.connect(
 const telemetryTopic =
   `machines/${config.machineId}/telemetry`;
 
-
+const controlTopic =
+  `machines/${config.machineId}/control`;
 /*
  * -----------------------------------------
  * MACHINE
@@ -70,6 +71,7 @@ const machine = createMachine({
 
   longitude: config.longitude,
 });
+
 
 
 /*
