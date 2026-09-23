@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Caterpillar Machine Simulator</title>
+
+  <style>
+
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 700px;
+      margin: 50px auto;
+      padding: 20px;
+    }
+
+    h1 {
+      margin-bottom: 30px;
+    }
+
+    .machine {
+      background: #f5f5f5;
+      padding: 25px;
+      border-radius: 10px;
+      margin-bottom: 25px;
+    }
+
+    label {
+      display: block;
+      margin-top: 15px;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    select,
+    input,
+    button {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+
+    button {
+      margin-top: 20px;
+      cursor: pointer;
+    }
+
+    #status {
+      margin-top: 25px;
+      padding: 15px;
+      background: #eee;
+      border-radius: 8px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+  </style>
+
+</head>
+
+
+<body>
+
+  <h1>
+    Caterpillar Machine Simulator
+  </h1>
+
+
+  <!-- ========================================= -->
+  <!-- MACHINE SELECTION -->
+  <!-- ========================================= -->
+
+  <div
+    id="machineSelection"
+    class="machine"
+  >
+
+    <h2>
+      Select Machine
+    </h2>
+
+
+    <label for="machineSelect">
+      Machine ID
+    </label>
+
+
+    <select id="machineSelect">
+
+      <option value="MACHINE-001">
+        MACHINE-001
+      </option>
+
+      <option value="MACHINE-002">
+        MACHINE-002
+      </option>
+
+      <option value="MACHINE-003">
+        MACHINE-003
+      </option>
+
+    </select>
+
+
+    <button
+      onclick="startMachine()"
+    >
+      Start Machine
+    </button>
+
+  </div>
+
+
+  <!-- ========================================= -->
+  <!-- SCENARIO CONTROL -->
+  <!-- ========================================= -->
+
+  <div
+    id="scenarioControl"
+    class="machine hidden"
+  >
+
+    <h2>
+      Machine:
+      <span id="machineId">
+        -
+      </span>
+    </h2>
+
+
+    <label for="scenario">
+      Scenario
+    </label>
+
+
+    <select id="scenario">
+
+      <option value="NORMAL">
+        Normal
+      </option>
+
+      <option value="SEATBELT_VIOLATION">
+        Seatbelt Violation
+      </option>
+
+      <option value="EXCESSIVE_IDLE">
+        Excessive Idle
+      </option>
+
+      <option value="OVERHEATING">
+        Overheating
+      </option>
+
+      <option value="HIGH_VIBRATION">
+        High Vibration
+      </option>
+
+      <option value="PROXIMITY_HAZARD">
+        Proximity Hazard
+      </option>
+
+      <option value="ABNORMAL_FUEL_CONSUMPTION">
+        Abnormal Fuel Consumption
+      </option>
+
+      <option value="MACHINE_OFFLINE">
+        Machine Offline
+      </option>
+
+    </select>
+
+
+    <label for="duration">
+      Duration (seconds)
+    </label>
+
+
+    <input
+      id="duration"
+      type="number"
+      min="1"
+      value="15"
+    >
+
+
+    <button
+      onclick="startScenario()"
+    >
+      Start Scenario
+    </button>
+
+
+    <button
+      onclick="stopScenario()"
+    >
+      Return to Normal
+    </button>
+
+
+    <div id="status">
+
+      Current Scenario:
+
+      <strong id="currentScenario">
+        NORMAL
+      </strong>
+
+    </div>
+
+  </div>
+
+
+  <!-- ========================================= -->
+  <!-- JAVASCRIPT -->
+  <!-- ========================================= -->
+
+  <script>
+
+
+    /*
+     * -----------------------------------------
+     * START MACHINE
+     * -----------------------------------------
+     */
+
+    async function startMachine() {
+
+      const machineId =
+        document.getElementById(
+          "machineSelect"
+        ).value;
+
+
+      try {
+
+        const response =
+          await fetch(
+            "/api/machine/start",
+            {
+              method: "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body: JSON.stringify({
+                machineId,
+              }),
+            }
+          );
+
+
+        const data =
+          await response.json();
+
+
+        if (!response.ok) {
+
+          alert(
+            data.error ||
+            "Failed to start machine"
+          );
+
+          return;
+        }
+
+
+        /*
+         * Hide machine selection
+         */
+
+        document.getElementById(
+          "machineSelection"
+        ).classList.add("hidden");
+
+
+        /*
+         * Show scenario controls
+         */
+
+        document.getElementById(
+          "scenarioControl"
+        ).classList.remove("hidden");
+
+
+        /*
+         * Display selected machine
+         */
+
+        document.getElementById(
+          "machineId"
+        ).textContent =
+          data.machineId;
+
+
+        updateStatus(
+          data.scenario
+        );
+
+
+      } catch (error) {
+
+        alert(
+          "Could not connect to control server"
+        );
+
+        console.error(error);
+
+      }
+
+    }
+
+
+    /*
+     * -----------------------------------------
+     * START SCENARIO
+     * -----------------------------------------
+     */
+
+    async function startScenario() {
+
+      const scenario =
+        document.getElementById(
+          "scenario"
+        ).value;
+
+
+      const duration =
+        Number(
+          document.getElementById(
+            "duration"
+          ).value
+        );
+
+
+      if (duration <= 0) {
+
+        alert(
+          "Duration must be greater than 0"
+        );
+
+        return;
+
+      }
+
+
+      try {
+
+        const response =
+          await fetch(
+            "/api/scenario/start",
+            {
+              method: "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body: JSON.stringify({
+                scenario,
+                duration,
+              }),
+            }
+          );
+
+
+        const data =
+          await response.json();
+
+
+        if (!response.ok) {
+
+          alert(
+            data.error ||
+            "Failed to start scenario"
+          );
+
+          return;
+
+        }
+
+
+        updateStatus(
+          data.scenario
+        );
+
+
+      } catch (error) {
+
+        alert(
+          "Could not connect to control server"
+        );
+
+        console.error(error);
+
+      }
+
+    }
+
+
+    /*
+     * -----------------------------------------
+     * RETURN TO NORMAL
+     * -----------------------------------------
+     */
+
+    async function stopScenario() {
+
+      try {
+
+        const response =
+          await fetch(
+            "/api/scenario/stop",
+            {
+              method: "POST",
+            }
+          );
+
+
+        const data =
+          await response.json();
+
+
+        if (!response.ok) {
+
+          alert(
+            data.error ||
+            "Failed to return to normal"
+          );
+
+          return;
+
+        }
+
+
+        updateStatus(
+          data.scenario
+        );
+
+
+      } catch (error) {
+
+        alert(
+          "Could not connect to control server"
+        );
+
+        console.error(error);
+
+      }
+
+    }
+
+
+    /*
+     * -----------------------------------------
+     * UPDATE UI STATUS
+     * -----------------------------------------
+     */
+
+    function updateStatus(scenario) {
+
+      document.getElementById(
+        "currentScenario"
+      ).textContent =
+        scenario;
+
+    }
+
+
+    /*
+     * -----------------------------------------
+     * REFRESH STATUS FROM SERVER
+     * -----------------------------------------
+     */
+
+    async function refreshStatus() {
+
+      try {
+
+        const response =
+          await fetch(
+            "/api/status"
+          );
+
+
+        const data =
+          await response.json();
+
+
+        /*
+         * Simulator has not been started yet
+         */
+
+        if (!data.started) {
+
+          return;
+
+        }
+
+
+        /*
+         * Simulator is running
+         */
+
+        document.getElementById(
+          "machineSelection"
+        ).classList.add("hidden");
+
+
+        document.getElementById(
+          "scenarioControl"
+        ).classList.remove("hidden");
+
+
+        document.getElementById(
+          "machineId"
+        ).textContent =
+          data.machineId;
+
+
+        updateStatus(
+          data.scenario
+        );
+
+
+      } catch (error) {
+
+        console.error(
+          "Status update failed:",
+          error
+        );
+
+      }
+
+    }
+
+
+    /*
+     * -----------------------------------------
+     * INITIAL STATUS CHECK
+     * -----------------------------------------
+     */
+
+    refreshStatus();
+
+
+    /*
+     * -----------------------------------------
+     * REFRESH EVERY SECOND
+     * -----------------------------------------
+     *
+     * This is important because a scenario such
+     * as OVERHEATING automatically returns to
+     * NORMAL after its duration expires.
+     */
+
+    setInterval(
+      refreshStatus,
+      1000
+    );
+
+
+  </script>
+
+</body>
+
+</html>
