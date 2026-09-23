@@ -291,7 +291,16 @@ Available scenarios:
 - High Vibration
 - Proximity Hazard
 - Abnormal Fuel Consumption
+- Sensor Fault (brakes and rear proximity sensor fail, so the next pre-check fails)
+- Rollover Risk (tilt climbs to 19°)
+- Impact (a single 3.4 g shock)
+- Worker Nearby (a person 1.8 m away, which is critical)
+- Operator Absent (seat and seatbelt empty while the machine is running)
+- Low Oil Pressure
+- Overload (6200 kg against a 5000 kg rated capacity)
 - Machine Offline
+
+The dropdown is filled from `GET /api/scenarios`, so it always matches the code.
 
 To test a scenario:
 
@@ -426,6 +435,35 @@ This immediately changes the simulator back to:
 ```text
 NORMAL
 ```
+
+---
+
+# Operator dashboard integration (CATman_central)
+
+The control page (`http://localhost:3000`) also acts as the machine side for the operator dashboard.
+
+**Extra MQTT topics**
+
+| Direction | Topic | What |
+|---|---|---|
+| out | `machines/{id}/heartbeat` | every 5 s (`HEARTBEAT_INTERVAL_MS`) |
+| out | `machines/{id}/state` | on change (IDLE / OPERATING / ...) |
+| out | `machines/{id}/events` | `HORN_SOUNDED`, `IMPACT`, ... |
+| out | `site/conditions` | weather, visibility and ambient temperature every 60 s, and on change |
+| in | `machines/{id}/commands/precheck` | run a pre-check (AUTO or MANUAL) |
+| in | `machines/{id}/commands/precheck-cancel`, `/shift`, `/horn` | cancel, shift start/end, sound the horn |
+| out | `machines/{id}/precheck/ack`, `/progress`, `/result` | pre-check response |
+
+Telemetry now also includes: operator presence, hydraulic lockout, parking brake, nearest object distance, impact g, speed, tilt, swing angle, boom height, load and rated capacity, oil pressure, terrain and sensor faults.
+
+**Pre-check panel** (on the control page)
+
+- **AUTO**: the machine checks its 15 sensors itself and reports the result in about 3 s.
+- **MANUAL** (human in the loop): when the operator starts a pre-check, the panel lists all 15 sensors with their live readings. Mark each one **OK / WARN / FAIL**, with an optional note. Each one shows up on the operator's dashboard straight away. **Mark all OK** marks everything OK, and **Submit** is enabled once all 15 are marked.
+
+**Other controls**: site weather and visibility (these change the size of the dashboard's safety zone) and a **Horn** button.
+
+**Control API**: `GET /api/telemetry`, `GET/POST /api/site`, `POST /api/horn`, `GET /api/precheck`, `POST /api/precheck/mode | verify | mark-all-ok | submit`.
 
 ---
 
@@ -640,9 +678,10 @@ MQTT_BROKER_URL=mqtt://192.168.x.x:1883
 
 ## Port 3000 is already in use
 
-Another application may already be using port 3000.
+Another application, or an older simulator, may already be using port 3000.
 
-Stop the application using the port and run the simulator again.
+Stop it and run the simulator again, or start this one on another port:
+`CONTROL_PORT=3001 npm start` (PowerShell: `$env:CONTROL_PORT=3001; npm start`).
 
 ---
 
