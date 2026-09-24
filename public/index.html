@@ -59,6 +59,17 @@
     td input { padding: 6px; font-size: 13px; }
     .override { color: #D62828; font-size: 12px; font-weight: bold; }
     .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .hazards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-top: 12px; }
+    .hazard { border: 2px solid #d4d4d4; border-radius: 6px; padding: 12px; background: #fafafa; }
+    .hazard.on { border-color: #D62828; background: #fdecec; }
+    .hazard h3 { margin: 0; font-size: 16px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .hazard p { margin: 6px 0 0; font-size: 13px; color: #555; }
+    .hazard .val { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 14px; }
+    .hazard .val input { width: 110px; padding: 6px; font-size: 14px; }
+    .toggle { width: auto; margin: 0; padding: 6px 14px; font-size: 14px; background: #fff; border-color: #bbb; }
+    .toggle.on { background: #D62828; color: #fff; border-color: #D62828; }
+    .live-badge { display: inline-block; font-size: 11px; font-weight: bold; color: #D62828; }
+    .danger-btn { background: #D62828; color: #fff; border-color: #a31d1d; }
   </style>
 </head>
 <body>
@@ -83,6 +94,21 @@
     <div class="card">
       <h2>Machine <span id="machineId">-</span> — live</h2>
       <div class="row" id="live"></div>
+    </div>
+
+    <!-- MANUAL SAFETY CONTROLS -->
+    <div class="card">
+      <h2>Manual safety controls</h2>
+      <p class="muted" style="margin:0">
+        Switch a hazard on at any time. It stays on until you switch it off, and the operator
+        dashboard reacts within seconds. Seatbelt, operator-out and oil hazards keep the machine working
+        so the safety rules apply.
+      </p>
+      <div class="hazards" id="hazardList"></div>
+      <div class="actions">
+        <button class="danger-btn" onclick="impact()">Simulate impact (one-shot 3.4 g)</button>
+        <button class="secondary" onclick="clearHazards()">Switch all hazards off</button>
+      </div>
     </div>
 
     <!-- PRE-CHECK -->
@@ -200,6 +226,59 @@
 
     function soundHorn() { run(() => api('/api/horn', 'POST')); }
 
+    // ---- manual hazards ----
+    const hazardDrafts = {};
+    let lastHazardKey = '';
+
+    function toggleHazard(id, active) {
+      run(async () => {
+        const value = hazardDrafts[id];
+        renderHazards(await api('/api/hazards', 'POST', { id, active, value: value === undefined ? undefined : Number(value) }), true);
+      });
+    }
+
+    function applyHazardValue(id) {
+      toggleHazard(id, true);
+    }
+
+    function clearHazards() { run(async () => renderHazards(await api('/api/hazards/clear', 'POST'), true)); }
+
+    function impact() { run(() => api('/api/hazards/impact', 'POST', {})); }
+
+    function renderHazards(list, force = false) {
+      const key = JSON.stringify(list.map((h) => [h.id, h.active, h.currentValue]));
+      if (!force && key === lastHazardKey) return;
+      lastHazardKey = key;
+      const editing = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.hazard : null;
+
+      document.getElementById('hazardList').innerHTML = list.map((h) => {
+        const v = h.value;
+        const shown = hazardDrafts[h.id] ?? h.currentValue;
+        return `
+          <div class="hazard ${h.active ? 'on' : ''}">
+            <h3>
+              <span>${h.label} ${h.active ? '<span class="live-badge">● ON</span>' : ''}</span>
+              <button class="toggle ${h.active ? 'on' : ''}" onclick="toggleHazard('${h.id}', ${!h.active})">${h.active ? 'ON — switch off' : 'OFF'}</button>
+            </h3>
+            <p>${h.description}</p>
+            ${v ? `
+              <div class="val">
+                ${v.name}
+                <input type="number" data-hazard="${h.id}" min="${v.min}" max="${v.max}" step="${v.step}" value="${shown}"
+                  oninput="hazardDrafts['${h.id}']=this.value"
+                  onkeydown="if(event.key==='Enter')applyHazardValue('${h.id}')">
+                ${v.unit}
+                ${h.active ? `<button class="toggle" onclick="applyHazardValue('${h.id}')">Update</button>` : ''}
+              </div>` : ''}
+          </div>`;
+      }).join('');
+
+      if (editing) {
+        const input = document.querySelector(`input[data-hazard="${editing}"]`);
+        if (input) input.focus();
+      }
+    }
+
     function setMode(mode) { run(async () => { renderPanel(await api('/api/precheck/mode', 'POST', { mode })); }); }
 
     function verify(sensor, status) {
@@ -227,6 +306,9 @@
         ['Engine °C', t.engineTemperature],
         ['Hydraulic °C', t.hydraulicTemperature],
         ['Seatbelt', t.seatbeltStatus ? 'FASTENED' : 'OPEN'],
+        ['Operator in seat', t.operatorPresent ? 'YES' : 'NO'],
+        ['Hydraulics', t.hydraulicLockout ? 'LOCKED' : 'UNLOCKED'],
+        ['Vibration', `${t.vibration} g`],
         ['Nearest object', `${t.nearestObjectDistanceM} m`],
         ['Tilt', `${t.tiltAngleDeg}°`],
         ['Load', `${t.loadWeightKg} kg`],
@@ -309,6 +391,7 @@
         document.getElementById('currentScenario').textContent = status.scenario;
         renderLive(await api('/api/telemetry'));
         renderPanel(await api('/api/precheck'));
+        renderHazards(await api('/api/hazards'));
       } catch (e) {
         console.error('Refresh failed:', e);
       }

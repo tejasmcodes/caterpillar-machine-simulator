@@ -19,6 +19,7 @@ const {
   getSiteConditions,
   setSiteConditions,
   soundHorn,
+  hazards,
   precheck,
 } = require("./machineSimulator");
 
@@ -439,6 +440,41 @@ app.post(
     }
   }
 );
+
+
+/*
+ * -----------------------------------------
+ * MANUAL SAFETY HAZARDS (machine side)
+ * -----------------------------------------
+ *
+ * GET  /api/hazards                     list + which are on
+ * POST /api/hazards { id, active, value } switch one on/off
+ * POST /api/hazards/clear               switch all off
+ * POST /api/hazards/impact { g }        one-shot collision
+ */
+
+function hazardAction(fn) {
+  return (req, res) => {
+    try {
+      res.json(fn(req.body || {}));
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  };
+}
+
+app.get(
+  "/api/hazards",
+  (req, res) => {
+    res.json(hazards.list());
+  }
+);
+
+app.post("/api/hazards", hazardAction(({ id, active, value }) => hazards.set(id, active !== false, value)));
+
+app.post("/api/hazards/clear", hazardAction(() => hazards.clearAll()));
+
+app.post("/api/hazards/impact", hazardAction(({ g }) => hazards.impact(g === undefined ? 3.4 : Number(g))));
 
 
 /*

@@ -27,6 +27,15 @@ const {
   createCommandHandler,
 } = require("./commands");
 
+const {
+  WORKING_STATES,
+  createHazardController,
+} = require("./hazards");
+
+// While a manual hazard is on, the current snapshot is re-published this often
+// so the operator dashboard reacts within seconds instead of waiting a full tick.
+const HAZARD_REPUBLISH_MS = 1000;
+
 
 /*
  * -----------------------------------------
@@ -74,6 +83,10 @@ let heartbeatInterval = null;
 let siteInterval = null;
 
 let lastPublishedState = null;
+
+let hazardInterval = null;
+
+const hazards = createHazardController();
 
 const startedAt = Date.now();
 
@@ -409,6 +422,12 @@ function startSimulator(machineId) {
       config.heartbeatIntervalMs
     );
 
+  hazardInterval =
+    setInterval(
+      republishForHazards,
+      HAZARD_REPUBLISH_MS
+    );
+
   siteInterval =
     setInterval(
       publishSiteConditions,
@@ -730,6 +749,24 @@ function runSimulationTick() {
 
 
   /*
+   * Seatbelt / operator / oil hazards only matter
+   * while the machine works, so keep it working
+   * while one of them is switched on.
+   */
+
+  if (
+    hazards.needsWork() &&
+    !WORKING_STATES.has(machine.state)
+  ) {
+
+    machine.state = "OPERATING";
+
+    machine.stateTicks = 0;
+
+  }
+
+
+  /*
    * ---------------------------------------
    * APPLY SCENARIO
    * ---------------------------------------
@@ -801,7 +838,7 @@ function runSimulationTick() {
 
   const payload =
     createTelemetryPayload(
-      machine
+      withHazards(machine)
     );
 
 
@@ -848,6 +885,8 @@ function shutdown(
   }
 
   clearInterval(heartbeatInterval);
+
+  clearInterval(hazardInterval);
 
   clearInterval(siteInterval);
 
@@ -924,7 +963,7 @@ process.on(
  */
 
 function getLatestTelemetry() {
-  return machine ? createTelemetryPayload(machine) : null;
+  return machine ? createTelemetryPayload(withHazards(machine)) : null;
 }
 
 function getSiteConditions() {
@@ -935,6 +974,75 @@ function setSiteConditions(next) {
   siteConditions = { ...siteConditions, ...next };
   publishSiteConditions();
   return siteConditions;
+}
+
+function canPublish() {
+  return !!machine && machine.scenario !== SCENARIOS.MACHINE_OFFLINE;
+}
+
+// Manual hazards change what the sensors report, not the simulated machine,
+// so switching one off returns straight to the real values.
+function withHazards(m) {
+  if (!hazards.anyActive()) {
+    return m;
+  }
+  const copy = { ...m, location: { ...m.location } };
+  hazards.apply(copy);
+  return copy;
+}
+
+// Re-send the current snapshot (with the hazards applied) without advancing
+// the simulation, so fuel, engine hours and load cycles are not affected.
+function publishSnapshotNow() {
+  if (!canPublish()) {
+    return;
+  }
+  publishJson(telemetryTopic, createTelemetryPayload(withHazards(machine)));
+}
+
+function republishForHazards() {
+  if (hazards.anyActive()) {
+    publishSnapshotNow();
+  }
+}
+
+function requireMachine() {
+  if (!machine) {
+    throw new Error("Simulator has not been started");
+  }
+}
+
+function setHazard(id, active, value) {
+  requireMachine();
+  const result = hazards.set(id, active, value);
+  console.log(`[HAZARD] ${machine.machineId} ${id} ${active ? `ON${value !== undefined ? ` (${value})` : ""}` : "OFF"}`);
+
+  if (active && hazards.needsWork() && !WORKING_STATES.has(machine.state)) {
+    machine.state = "OPERATING";
+    machine.stateTicks = 0;
+  }
+  publishSnapshotNow();
+  return result;
+}
+
+function clearHazards() {
+  requireMachine();
+  const result = hazards.clearAll();
+  console.log(`[HAZARD] ${machine.machineId} all cleared`);
+  publishSnapshotNow();
+  return result;
+}
+
+// One-shot collision: a single 3.4 g reading plus an IMPACT event.
+function triggerImpact(g = 3.4) {
+  requireMachine();
+  if (!canPublish()) {
+    throw new Error("Machine is offline");
+  }
+  publishJson(telemetryTopic, createTelemetryPayload({ ...withHazards(machine), impactG: g }));
+  publishEvent("IMPACT", "CRITICAL", { impactG: g, source: "MACHINE_SIDE" });
+  console.log(`[HAZARD] ${machine.machineId} IMPACT ${g} g`);
+  return { impactG: g };
 }
 
 function soundHorn() {
@@ -962,6 +1070,13 @@ module.exports = {
   setSiteConditions,
 
   soundHorn,
+
+  hazards: {
+    list: () => hazards.list(),
+    set: setHazard,
+    clearAll: clearHazards,
+    impact: triggerImpact,
+  },
 
   precheck: {
     getPanel: () => commandHandler.getPanel(),
